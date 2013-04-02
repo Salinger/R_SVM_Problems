@@ -1,9 +1,11 @@
 library(scatterplot3d)
-library(kernlab)
 
 hundred <- read.table("hundred.txt",header=F,sep=" ")
-#hundred <- as.data.frame(scale(as.matrix(hundred.raw),center=T,scale=T))
 names(hundred) <- c("weight","shc","ref")
+# Scaling for calcurating distances
+scaled <- as.data.frame(
+    scale(as.matrix(hundred), center = TRUE, scale = TRUE)
+    )
 
 # Test plot
 g = scatterplot3d(
@@ -17,36 +19,18 @@ g = scatterplot3d(
 print(g)
 browser()
 
-# 1-class SVM
-#   For optimizing nu parameter
-svm <- function(d,nu){
-    classifier <- ksvm(
-        as.matrix(d),
-        type ="one-svc",
-        kernel="rbfdot",
-        nu=nu
-        )
-    p = predict(classifier)
-    return(which(p == F))
-}
-#   Return outlier index frequencies
-outlier <- function(d){
-    counter <- numeric(length(d$weight))
-    for(nu in seq(0.01,0.2,by=0.005)){
-        result <- svm(d,nu)
-        counter[result] = counter[result] + 1
-    }
-    return(counter)
-} 
-outlier.count <- outlier(hundred)
-index <- order(outlier.count, decreasing = T)
+
+# k-means method
+num.cluster <- 2
+try <- 50
+cluster <- kmeans(scaled,num.cluster,nstart=try)
+centers <- cluster$centers[cluster$cluster,]
+index <- order(rowSums((scaled - centers)^2),decreasing=TRUE)
 top5 <- index[1:5]
-print(top5)
-label <- rep(T,length(outlier.count))
+label <- rep(T,length(index))
 label[top5] <- F
 hundred["label"] = label
 browser()
-
 
 #Plot outliers
 result.t <- hundred[hundred$label == T,]
@@ -81,10 +65,10 @@ g = scatterplot3d(
     zlab = "",
     pch = 20,
     type = "h",
-    color = "blue"
+    color = "blue",
     )
 print(g)
 browser()
 
 # Output
-write.table(hundred,file="result_svm.csv",row.names=F)
+write.table(hundred,file="result_kmeans.csv",row.names=F)
